@@ -1,8 +1,9 @@
+# private script to download data
+
 from Bio import SeqIO
 from Bio import Entrez
 import os
 import time
-
 
 base_folder = "./data/genbank/"
 

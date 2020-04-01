@@ -22,7 +22,7 @@ Initial exploratory analysis it's on the root [notebook](./coronaversing.ipynb) 
    * [The origin, transmission and clinical therapies on coronavirus disease 2019 (COVID-19) outbreak – an update on the status](https://mmrjournal.biomedcentral.com/articles/10.1186/s40779-020-00240-0)
    * [Complete genome characterisation of a novel coronavirus associated with severe human respiratory disease in Wuhan, China](https://www.biorxiv.org/content/10.1101/2020.01.24.919183v1.full.pdf)
    * Interesting analysis of the evolution and adapatation of the Hepatitis E virus: [Genotype-specific acquisition, evolution and adaptation of characteristic mutations in hepatitis E virus](https://www.researchgate.net/publication/318597288_Genotype-specific_acquisition_evolution_and_adaptation_of_characteristic_mutations_in_hepatitis_E_virus)
-
+  * [Complete Genomic Sequence of Human Coronavirus OC43: Molecular Clock Analysis Suggests a Relatively Recent Zoonotic Coronavirus Transmission Event](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC544107/)
 * Coronavirus main protease. *Is there a way to predict the cleavage sites in the orf1ab protein?*
 
   * [In Silico Analysis of ORF1ab in Coronavirus](https://onlinelibrary.wiley.com/doi/pdf/10.1111/j.1348-0421.2005.tb03681.x)

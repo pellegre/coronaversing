@@ -7,7 +7,8 @@ Initial exploratory analysis it's on the root [notebook](./coronaversing.ipynb) 
 
 **TABLE OF CONTENTS**
 
-1. [Exploratory analysis](./coronaversing.ipynb)
+1. [Genome Exploratory Analysis](./coronaversing.ipynb)
+2. [Protein Recognition and Classification](./proteindb.ipynb)
 
 ## Useful Resources and References
 

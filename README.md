@@ -24,6 +24,8 @@ Initial exploratory analysis it's on the root [notebook](./coronaversing.ipynb) 
    * [Complete genome characterisation of a novel coronavirus associated with severe human respiratory disease in Wuhan, China](https://www.biorxiv.org/content/10.1101/2020.01.24.919183v1.full.pdf)
    * Interesting analysis of the evolution and adapatation of the Hepatitis E virus: [Genotype-specific acquisition, evolution and adaptation of characteristic mutations in hepatitis E virus](https://www.researchgate.net/publication/318597288_Genotype-specific_acquisition_evolution_and_adaptation_of_characteristic_mutations_in_hepatitis_E_virus)
   * [Complete Genomic Sequence of Human Coronavirus OC43: Molecular Clock Analysis Suggests a Relatively Recent Zoonotic Coronavirus Transmission Event](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC544107/)
+  * [Identification and characterization of Coronaviridae genomes from Vietnamese bats and rats based on conserved protein domains](https://academic.oup.com/ve/article/4/2/vey035/5250438)
+
 * Coronavirus main protease. *Is there a way to predict the cleavage sites in the orf1ab protein?*
 
   * [In Silico Analysis of ORF1ab in Coronavirus](https://onlinelibrary.wiley.com/doi/pdf/10.1111/j.1348-0421.2005.tb03681.x)
@@ -31,7 +33,7 @@ Initial exploratory analysis it's on the root [notebook](./coronaversing.ipynb) 
   * [Coronavirus 3CLproproteinase cleavage sites: Possible relevance to SARS virus pathology](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC442122/)
   * Not from the Corona family, but the technique is relevant: [Cleavage site analysis in picornaviral  polyproteins: Discovering cellular targets by neural  networks](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC2143287/pdf/8931139.pdf)
   * Also not Corona related, but the same techniques can be used : [Prediction of HIV-1 protease cleavage site using a combination of sequence, structural, and physicochemical features](https://bmcbioinformatics.biomedcentral.com/articles/10.1186/s12859-016-1337-6)
-
+ 
 * Potential drugs?
   * [Network-based drug repurposing for novel coronavirus 2019-nCoV/SARS-CoV-2](https://www.nature.com/articles/s41421-020-0153-3)
   

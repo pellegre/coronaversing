@@ -16,6 +16,7 @@ Initial exploratory analysis it's on the root [notebook](./coronaversing.ipynb) 
 
    * [Coronaviruses: An Overview of Their Replication and Pathogenesis](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4369385/)
    * [Coronavirus Main Proteinase (3CLpro) Structure: Basis for Design of Anti-SARS Drugs](https://www.researchgate.net/publication/10759534_Coronavirus_Main_Proteinase_3CLpro_Structure_Basis_for_Design_of_Anti-SARS_Drugs?enrichId=rgreq-e758c6e46d80b29b66807b3ce30b58de-XXX&enrichSource=Y292ZXJQYWdlOzEwNzU5NTM0O0FTOjEwMzQwMjIxMDA3MDU0NkAxNDAxNjY0NDE2OTY4&el=1_x_3&_esc=publicationCoverPdf)
+   * [COVID-19 infection: Origin, transmission, and characteristics of human coronaviruses](https://www.sciencedirect.com/science/article/pii/S2090123220300540)
    * [The coronavirus replicase](https://www.ncbi.nlm.nih.gov/pubmed/15609509)
    * [Coronavirus: RNA proofreading machine regulates replication fidelity and diversity](https://www.tandfonline.com/doi/pdf/10.4161/rna.8.2.15013)
    * [Coronavirus Genomics](https://www.researchgate.net/publication/51712039_Coronavirus_Genomics_and_Bioinformatics_Analysis)

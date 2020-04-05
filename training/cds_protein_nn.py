@@ -78,7 +78,7 @@ def main():
     network.compile(optimizer="rmsprop", loss="categorical_crossentropy", metrics=["accuracy"])
 
     # train network
-    network.fit(x_train, y_train, epochs=500, batch_size=128, class_weight=class_weights)
+    network.fit(x_train, y_train, epochs=500, batch_size=32, class_weight=class_weights)
 
     # predict our testing set
     y_pred = network.predict(x_test)

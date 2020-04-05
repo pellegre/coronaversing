@@ -41,6 +41,7 @@ def main():
     else:
         raise ValueError("file", training_set_filename, "not found")
 
+    training_df = training_df.drop(["start"], axis=1)
     training_df = training_df.fillna(0)
 
     cls = training_df["type"].unique()
@@ -68,17 +69,17 @@ def main():
 
     network = Sequential()
 
-    network.add(Dense(64, activation="relu", input_shape=(len(x_train[0]),)))
-    network.add(Dense(64, activation="relu"))
-    network.add(Dense(64, activation="relu"))
-    network.add(Dense(64, activation="relu"))
+    network.add(Dense(128, activation="relu", input_shape=(len(x_train[0]),)))
+    network.add(Dense(128, activation="relu"))
+    network.add(Dense(128, activation="relu"))
+    network.add(Dense(128, activation="relu"))
     network.add(Dense(len(y_train[0]), activation="softmax"))
 
     # compile network
     network.compile(optimizer="rmsprop", loss="categorical_crossentropy", metrics=["accuracy"])
 
     # train network
-    network.fit(x_train, y_train, epochs=1, batch_size=128, class_weight=class_weights)
+    network.fit(x_train, y_train, epochs=500, batch_size=128, class_weight=class_weights)
 
     # predict our testing set
     y_pred = network.predict(x_test)
@@ -87,7 +88,7 @@ def main():
 
     hits = y_test.argmax(axis=1) == y_pred.argmax(axis=1)
     print("Accuracy :", float(np.count_nonzero(hits)) / float(len(hits)))
-    
+
     print("Confusion Matrix")
     matrix = confusion_matrix(y_test.argmax(axis=1), y_pred.argmax(axis=1))
 

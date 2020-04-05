@@ -8,6 +8,8 @@ from sklearn.metrics import classification_report, confusion_matrix
 from keras.models import Sequential
 from keras.layers import Dense, Dropout
 from keras.utils import to_categorical
+from keras import backend as K
+import tensorflow as tf
 
 import argparse
 
@@ -21,8 +23,17 @@ def main():
                         type=str, help="filename of the training data frame")
     parser.add_argument("-o", "--output", action="store",
                         type=str, help="directory to store the model", required=True)
+    parser.add_argument("-j", "--jobs", action="store",
+                        type=str, help="directory to store the model")
 
     print("[+] protein classification")
+
+    if args.jobs is not None:
+        config = tf.compat.v1.ConfigProto(intra_op_parallelism_threads=args.jobs,
+                                          inter_op_parallelism_threads=args.jobs,
+                                          allow_soft_placement=True, device_count={'CPU': args.jobs})
+        session = tf.compat.v1.Session(config=config)
+        K.set_session(session)
 
     args = parser.parse_args()
     training_set_filename = args.filename

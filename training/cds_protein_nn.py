@@ -8,8 +8,6 @@ from sklearn.metrics import classification_report, confusion_matrix
 from keras.models import Sequential
 from keras.layers import Dense, Dropout
 from keras.utils import to_categorical
-from keras import backend as K
-import tensorflow as tf
 
 import argparse
 
@@ -23,18 +21,9 @@ def main():
                         type=str, help="filename of the training data frame")
     parser.add_argument("-o", "--output", action="store",
                         type=str, help="directory to store the model", required=True)
-    parser.add_argument("-j", "--jobs", action="store",
-                        type=str, help="directory to store the model")
 
     print("[+] protein classification")
     args = parser.parse_args()
-
-    if args.jobs is not None:
-        config = tf.compat.v1.ConfigProto(intra_op_parallelism_threads=int(args.jobs),
-                                          inter_op_parallelism_threads=int(args.jobs),
-                                          allow_soft_placement=True, device_count={'CPU': int(args.jobs)})
-        session = tf.compat.v1.Session(config=config)
-        K.set_session(session)
 
     training_set_filename = args.filename
     output_directory = args.output
@@ -52,7 +41,6 @@ def main():
     else:
         raise ValueError("file", training_set_filename, "not found")
 
-    training_df = training_df.drop(["start"], axis=1)
     training_df = training_df.fillna(0)
 
     cls = training_df["type"].unique()
@@ -120,7 +108,7 @@ def main():
 
     # store confusion matrix
     mdf.to_pickle(output_directory + "/cds_protein_nn_matrix.pkl")
-    
+
     print("Saved model to disk")
 
 

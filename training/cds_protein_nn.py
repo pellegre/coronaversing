@@ -28,10 +28,10 @@ def main():
 
     print("[+] protein classification")
 
-    if args.jobs is not None:
-        config = tf.compat.v1.ConfigProto(intra_op_parallelism_threads=args.jobs,
-                                          inter_op_parallelism_threads=args.jobs,
-                                          allow_soft_placement=True, device_count={'CPU': args.jobs})
+    if parser.jobs is not None:
+        config = tf.compat.v1.ConfigProto(intra_op_parallelism_threads=parser.jobs,
+                                          inter_op_parallelism_threads=parser.jobs,
+                                          allow_soft_placement=True, device_count={'CPU': parser.jobs})
         session = tf.compat.v1.Session(config=config)
         K.set_session(session)
 

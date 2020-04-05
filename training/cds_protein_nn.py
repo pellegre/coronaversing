@@ -78,13 +78,16 @@ def main():
     network.compile(optimizer="rmsprop", loss="categorical_crossentropy", metrics=["accuracy"])
 
     # train network
-    network.fit(x_train, y_train, epochs=500, batch_size=128, class_weight=class_weights)
+    network.fit(x_train, y_train, epochs=1, batch_size=128, class_weight=class_weights)
 
     # predict our testing set
     y_pred = network.predict(x_test)
 
     target_names = cls
 
+    hits = y_test.argmax(axis=1) == y_pred.argmax(axis=1)
+    print("Accuracy :", float(np.count_nonzero(hits)) / float(len(hits)))
+    
     print("Confusion Matrix")
     matrix = confusion_matrix(y_test.argmax(axis=1), y_pred.argmax(axis=1))
 

@@ -27,6 +27,7 @@ def main():
                         type=str, help="directory to store the model")
 
     print("[+] protein classification")
+    args = parser.parse_args()
 
     if parser.jobs is not None:
         config = tf.compat.v1.ConfigProto(intra_op_parallelism_threads=parser.jobs,
@@ -35,7 +36,6 @@ def main():
         session = tf.compat.v1.Session(config=config)
         K.set_session(session)
 
-    args = parser.parse_args()
     training_set_filename = args.filename
     output_directory = args.output
 

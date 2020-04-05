@@ -117,6 +117,10 @@ def main():
 
     # serialize weights to HDF5
     network.save_weights(output_directory + "/cds_protein_nn.h5")
+
+    # store confusion matrix
+    mdf.to_pickle(output_directory + "/cds_protein_nn_matrix.pkl")
+    
     print("Saved model to disk")
 
 

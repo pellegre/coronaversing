@@ -233,8 +233,6 @@ def main():
 
         training_cases[suffix] = training_df[training_df["type"].isin(CDS_CLASSES)]
 
-        print(training_cases[suffix])
-
         if args.g:
             # get ORFs for prediction
             predict_df = training_df["type"][training_df["type"] == "PRED"]

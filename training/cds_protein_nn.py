@@ -21,14 +21,15 @@ import argparse
 TRAINING_FRACTION = 0.8
 CDS_FASTA_FILE = "/corona_cds.faa"
 PFAM_DATABASE = "/Pfam-A.CoV.hmm"
-CDS_CLASSES = ["ORF1A", "S", "HE", "E", "N", "M", "UNDEF"]
+ORFS_PREDICTION_SET="./.cache_orfs_prediction_set.pkl"
+CDS_CLASSES = ["S", "HE", "E", "N", "M", "UNDEF"]
 
 # grid search parameters
 CUTOFF = ["-E 1e-50", "-E 1e-30", "-E 1e-20", "-E 1e-10", "-E 1e-5", "-E 1e-3", "-E 1e-2", "--cut_ga"]
 HIDDEN_LAYERS = [0, 1, 2]
 
 
-def get_training_set(cds_classes, domain_matches, corona_cds_training):
+def get_training_set(domain_matches, corona_cds_training):
     columns = ["length"]
 
     domain_count = domain_matches.groupby(["domain", "id"]).size().reset_index(name="count")
@@ -44,8 +45,9 @@ def get_training_set(cds_classes, domain_matches, corona_cds_training):
 
     dataset_frame = {i: dict() for i in columns}
 
-    for cls in cds_classes:
+    for cls in corona_cds_training:
 
+        # get CDS group
         df = corona_cds_training[cls]
 
         for index, row in df.iterrows():
@@ -155,9 +157,14 @@ def main():
 
     records = []
     for cls in corona_cds_training:
-        for index, row in corona_cds_training[cls].iterrows():
-            record = SeqRecord(Seq(row["translation"]), id=index, description=row["product"])
-            records.append(record)
+        if cls == "PRED":
+            for index, row in corona_cds_training[cls].iterrows():
+                record = SeqRecord(row["protein"], id=index, description=row["id"])
+                records.append(record)
+        else:
+            for index, row in corona_cds_training[cls].iterrows():
+                record = SeqRecord(Seq(row["translation"]), id=index, description=row["product"])
+                records.append(record)
 
     cds_fasta_file = data_directory + CDS_FASTA_FILE
     SeqIO.write(records, cds_fasta_file, "fasta")
@@ -178,9 +185,12 @@ def main():
     training_cases = {}
     for cutoff in cutoff_values:
         suffix = str(cutoff).replace(' ', '')
-        scan_file = data_directory + "/matches_cds" + suffix + ".scan"
+        if args.g:
+            scan_file = data_directory + "/matches_cds.scan"
+        else:
+            scan_file = "/tmp/matches_cds" + suffix + ".scan"
 
-        command = ["hmmscan", "--domtblout", scan_file, cutoff, "--cpu", "8", pfam_database_file, cds_fasta_file]
+        command = ["hmmscan", "--domtblout", scan_file, cutoff, "--cpu", "64", pfam_database_file, cds_fasta_file]
 
         with open(os.devnull, "w") as f:
             subprocess.call(command, stdout=f)
@@ -218,10 +228,18 @@ def main():
 
         domain_matches = pd.DataFrame.from_dict(domains_frame)
 
-        training_df = get_training_set(CDS_CLASSES, domain_matches, corona_cds_training)
+        training_df = get_training_set(domain_matches, corona_cds_training)
         training_df = training_df.fillna(0)
 
-        training_cases[suffix] = training_df
+        training_cases[suffix] = training_df["type"][training_df["type"].isin(CDS_CLASSES)]
+
+        print(training_cases[suffix])
+
+        if args.g:
+            # get ORFs for prediction
+            predict_df = training_df["type"][training_df["type"] == "PRED"]
+            print("Writing", ORFS_PREDICTION_SET, "file")
+            predict_df.to_pickle(ORFS_PREDICTION_SET)
 
     columns = ["cutoff"]
     for hidden_number in hidden_layers:
@@ -324,9 +342,6 @@ def main():
 
                     # serialize weights to HDF5
                     network.save_weights(output_directory + "/cds_protein_nn.h5")
-
-                    # store confusion matrix
-                    mdf.to_pickle(output_directory + "/cds_protein_nn_matrix.pkl")
 
                     print("Saved model to disk")
 

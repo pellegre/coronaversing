@@ -21,7 +21,11 @@ import argparse
 TRAINING_FRACTION = 0.8
 CDS_FASTA_FILE = "/corona_cds.faa"
 PFAM_DATABASE = "/Pfam-A.CoV.hmm"
-CDS_CLASSES = ["S", "HE", "E", "N", "M", "UNDEF"]
+CDS_CLASSES = ["ORF1A", "S", "HE", "E", "N", "M", "UNDEF"]
+
+# grid search parameters
+CUTOFF = ["-E 1e-50", "-E 1e-30", "-E 1e-20", "-E 1e-10", "-E 1e-5", "-E 1e-3", "-E 1e-2", "--cut_ga"]
+HIDDEN_LAYERS = [0, 1, 2]
 
 
 def get_training_set(cds_classes, domain_matches, corona_cds_training):
@@ -71,6 +75,8 @@ def get_training_set(cds_classes, domain_matches, corona_cds_training):
 
 
 def print_missed(training_df, loaded_model):
+    df = training_df.copy()
+
     # load complete CDS file
     cache_cds_file = ".cache_cds.pkl"
     with open(cache_cds_file, "rb") as handle:
@@ -78,17 +84,17 @@ def print_missed(training_df, loaded_model):
 
     corona_cds = corona_cds.set_index("protein_id")
 
-    cls = training_df["type"].unique()
+    cls = df["type"].unique()
     class_map = {tp: i for tp, i in zip(cls, range(0, len(cls)))}
     categories_map = {v: k for k, v in class_map.items()}
 
-    x = training_df.values[:, :-1]
+    x = df.values[:, :-1]
     y_pred = loaded_model.predict(x)
 
     y_pred = np.vectorize(categories_map.get)(y_pred.argmax(axis=1))
-    training_df["predicted"] = y_pred
+    df["predicted"] = y_pred
 
-    misses = training_df[training_df["type"].values != training_df["predicted"].values]
+    misses = df[df["type"].values != df["predicted"].values]
 
     missed_cds = corona_cds[corona_cds.index.isin(misses.index)][
         ["product", "start", "end", "length", "gene", "oid"]]
@@ -106,7 +112,10 @@ def main():
                         type=str, help="directory to store the model", required=True)
     parser.add_argument("-d", "--data", action="store",
                         type=str, help="directory with Pfam data", required=True)
+    parser.add_argument("-x", "--cross", action="store", default=5,
+                        type=str, help="number of folds (k-fold cross validation)")
     parser.add_argument("-l", action="store_true", default=False, help="load classifier")
+    parser.add_argument("-g", action="store_true", default=False, help="grid search (optimize e cut-off)")
 
     print("[+] protein classification")
     args = parser.parse_args()
@@ -122,6 +131,9 @@ def main():
     # load training set
     with open(training_set_filename, "rb") as handle:
         corona_cds_training = pickle.load(handle)
+
+    # domain database
+    pfam_database_file = data_directory + PFAM_DATABASE
 
     # load classifier and predict
     if args.l:
@@ -152,119 +164,182 @@ def main():
 
     print("[+] fasta file written :", cds_fasta_file)
 
-    pfam_database_file = data_directory + PFAM_DATABASE
-    scan_file = data_directory + "/matches_cds.scan"
-    cutoff = "--cut_ga"
-    cutoff = "-E 0.001"
-    command = ["hmmscan", "--domtblout", scan_file, cutoff, "--cpu", "8", pfam_database_file, cds_fasta_file]
+    if args.g:
+        cutoff_values = CUTOFF
+        hidden_layers = HIDDEN_LAYERS
+        k_fold = args.cross
+    else:
+        # we know this is the optimal values
+        cutoff_values = ["-E 1e-2"]
+        hidden_layers = [2]
+        k_fold = 1
 
-    with open(os.devnull, "w") as f:
-        subprocess.call(command, stdout=f)
+    # run HMMSCAN for all the cases we need
+    training_cases = {}
+    for cutoff in cutoff_values:
+        suffix = str(cutoff).replace(' ', '')
+        scan_file = data_directory + "/matches_cds" + suffix + ".scan"
 
-    print("[+] finish running hmmscan")
+        command = ["hmmscan", "--domtblout", scan_file, cutoff, "--cpu", "8", pfam_database_file, cds_fasta_file]
 
-    columns = ["id", "domain", "accession", "score", "from", "to"]
-    domains_frame = {i: list() for i in columns}
+        with open(os.devnull, "w") as f:
+            subprocess.call(command, stdout=f)
 
-    with open(scan_file) as matches_file:
-        for line in matches_file:
-            row = line[:-1]
-            if row != "#":
-                toks = row.split()
+        print("[+] finish running hmmscan")
 
-                # domain
-                domain = toks[0]
+        columns = ["id", "domain", "accession", "score", "from", "to"]
+        domains_frame = {i: list() for i in columns}
 
-                # accession number
-                acc = toks[1].split(".")[0]
+        with open(scan_file) as matches_file:
+            for line in matches_file:
+                row = line[:-1]
+                if row != "#":
+                    toks = row.split()
 
-                if "PF" in acc:
-                    domains_frame["accession"].append(acc)
-                    domains_frame["domain"].append(domain)
+                    # domain
+                    domain = toks[0]
 
-                    # protein id
-                    domains_frame["id"].append(toks[3])
+                    # accession number
+                    acc = toks[1].split(".")[0]
 
-                    # score
-                    domains_frame["score"].append(float(toks[7]))
+                    if "PF" in acc:
+                        domains_frame["accession"].append(acc)
+                        domains_frame["domain"].append(domain)
 
-                    # from
-                    domains_frame["from"].append(int(toks[17]))
-                    domains_frame["to"].append(int(toks[18]))
+                        # protein id
+                        domains_frame["id"].append(toks[3])
 
-    domain_matches = pd.DataFrame.from_dict(domains_frame)
+                        # score
+                        domains_frame["score"].append(float(toks[7]))
 
-    training_df = get_training_set(CDS_CLASSES, domain_matches, corona_cds_training)
-    training_df = training_df.fillna(0)
+                        # from
+                        domains_frame["from"].append(int(toks[17]))
+                        domains_frame["to"].append(int(toks[18]))
 
-    cls = training_df["type"].unique()
-    class_map = {tp: i for tp, i in zip(cls, range(0, len(cls)))}
+        domain_matches = pd.DataFrame.from_dict(domains_frame)
 
-    # get training data
-    t_data = training_df.values
-    np.random.shuffle(t_data)
+        training_df = get_training_set(CDS_CLASSES, domain_matches, corona_cds_training)
+        training_df = training_df.fillna(0)
 
-    # set index to define the training set
-    idx = int(TRAINING_FRACTION * len(t_data))
+        training_cases[suffix] = training_df
 
-    # training set
-    x_train = t_data[:idx, :-1]
-    y_train = np.vectorize(class_map.get)(t_data[:idx, -1])
+    columns = ["cutoff"]
+    for hidden_number in hidden_layers:
+        columns += ["hidden-" + str(hidden_number)]
 
-    # test set
-    x_test = t_data[idx:, :-1]
-    y_test = np.vectorize(class_map.get)(t_data[idx:, -1])
+    cross_validation = pd.DataFrame(None, columns=columns)
+    cross_validation["cutoff"] = cutoff_values
 
-    class_weights = class_weight.compute_class_weight("balanced", np.unique(y_train), y_train)
+    # run over each case
+    for j, case in zip(range(0, len(training_cases)), training_cases):
+        for hidden_number in hidden_layers:
 
-    y_train = to_categorical(y_train)
-    y_test = to_categorical(y_test)
+            case_hidden_column = "hidden-" + str(hidden_number)
+            average_accuracy = 0.0
 
-    network = Sequential()
+            # run for each cross validation case
+            for run in range(0, k_fold):
+                print(" =========== Running case", case, case_hidden_column, run)
 
-    network.add(Dense(32, activation="relu", input_shape=(len(x_train[0]),)))
-    network.add(Dense(16, activation="relu"))
-    network.add(Dense(16, activation="relu"))
-    network.add(Dense(len(y_train[0]), activation="softmax"))
+                # get training dataset
+                training_df = training_cases[case]
 
-    # compile network
-    network.compile(optimizer="rmsprop", loss="categorical_crossentropy", metrics=["accuracy"])
+                # get classes
+                cls = training_df["type"].unique()
+                class_map = {tp: i for tp, i in zip(cls, range(0, len(cls)))}
 
-    # train network
-    network.fit(x_train, y_train, epochs=50, batch_size=8, class_weight=class_weights)
+                # get training data
+                t_data = np.copy(training_df.values)
 
-    # predict our testing set
-    y_pred = network.predict(x_test)
+                # shuffle the data
+                np.random.shuffle(t_data)
 
-    target_names = cls
+                # set index to define the training set
+                if args.g:
+                    idx = int(TRAINING_FRACTION * len(t_data))
+                else:
+                    idx = len(t_data)
 
-    hits = y_test.argmax(axis=1) == y_pred.argmax(axis=1)
-    print("Accuracy :", float(np.count_nonzero(hits)) / float(len(hits)))
+                # training set
+                x_train = t_data[:idx, :-1]
+                y_train = np.vectorize(class_map.get)(t_data[:idx, -1])
 
-    print("Confusion Matrix")
-    matrix = confusion_matrix(y_test.argmax(axis=1), y_pred.argmax(axis=1))
+                # test set
+                if args.g:
+                    x_test = t_data[idx:, :-1]
+                    y_test = np.vectorize(class_map.get)(t_data[idx:, -1])
+                else:
+                    print("Running single case with the FULL dataset")
+                    x_test = x_train
+                    y_test = y_train
 
-    mdf = pd.DataFrame(matrix, columns=cls)
-    mdf.index = cls
-    print(mdf)
+                class_weights = class_weight.compute_class_weight("balanced", np.unique(y_train), y_train)
 
-    print("Classification Report")
-    print(classification_report(y_test.argmax(axis=1), y_pred.argmax(axis=1), target_names=target_names))
+                encoded = to_categorical(y_train)
+                y_test = to_categorical(y_test)
 
-    # serialize model to JSON
-    model_json = network.to_json()
-    with open(output_directory + "/cds_protein_nn.json", "w") as json_file:
-        json_file.write(model_json)
+                network = Sequential()
 
-    # serialize weights to HDF5
-    network.save_weights(output_directory + "/cds_protein_nn.h5")
+                network.add(Dense(32, activation="relu", input_shape=(len(x_train[0]),)))
 
-    # store confusion matrix
-    mdf.to_pickle(output_directory + "/cds_protein_nn_matrix.pkl")
+                for nh in range(0, hidden_number):
+                    network.add(Dense(16, activation="relu"))
 
-    print("Saved model to disk")
+                network.add(Dense(len(encoded[0]), activation="softmax"))
 
-    print_missed(training_df, network)
+                # compile network
+                network.compile(optimizer="rmsprop", loss="categorical_crossentropy", metrics=["accuracy"])
+
+                # train network
+                network.fit(x_train, encoded, epochs=50, batch_size=8, class_weight=class_weights, verbose=0)
+
+                # predict our testing set
+                y_pred = network.predict(x_test)
+
+                target_names = cls
+
+                hits = y_test.argmax(axis=1) == y_pred.argmax(axis=1)
+
+                print("Result for case", case, "- hidden layers", hidden_number)
+                accuracy = float(np.count_nonzero(hits)) / float(len(hits))
+                print("Accuracy", accuracy)
+                average_accuracy += accuracy
+                print("Confusion Matrix")
+                matrix = confusion_matrix(y_test.argmax(axis=1), y_pred.argmax(axis=1))
+
+                mdf = pd.DataFrame(matrix, columns=cls)
+                mdf.index = cls
+                print(mdf)
+
+                print("Classification Report")
+                print(classification_report(y_test.argmax(axis=1), y_pred.argmax(axis=1), target_names=target_names))
+
+                print_missed(training_df, network)
+
+                if not args.g:
+                    # serialize model to JSON
+                    model_json = network.to_json()
+                    with open(output_directory + "/cds_protein_nn.json", "w") as json_file:
+                        json_file.write(model_json)
+
+                    # serialize weights to HDF5
+                    network.save_weights(output_directory + "/cds_protein_nn.h5")
+
+                    # store confusion matrix
+                    mdf.to_pickle(output_directory + "/cds_protein_nn_matrix.pkl")
+
+                    print("Saved model to disk")
+
+            # get average accuracy
+            average_accuracy /= float(k_fold)
+            print("Average accuracy for case :", case, case_hidden_column)
+
+            # set value on the data frame
+            cross_validation.iloc[j][case_hidden_column] = average_accuracy
+
+    # store cross validation results
+    print(cross_validation)
+    cross_validation.to_pickle(output_directory + "/cds_protein_nn_xval.pkl")
 
 
 main()

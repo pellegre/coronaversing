@@ -231,7 +231,7 @@ def main():
         training_df = get_training_set(domain_matches, corona_cds_training)
         training_df = training_df.fillna(0)
 
-        training_cases[suffix] = training_df["type"][training_df["type"].isin(CDS_CLASSES)]
+        training_cases[suffix] = training_df[training_df["type"].isin(CDS_CLASSES)]
 
         print(training_cases[suffix])
 

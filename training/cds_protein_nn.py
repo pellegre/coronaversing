@@ -3,6 +3,7 @@ import subprocess
 import pickle
 import numpy as np
 import os
+import json
 
 from sklearn.utils import class_weight
 from sklearn.metrics import classification_report, confusion_matrix
@@ -21,7 +22,12 @@ import argparse
 TRAINING_FRACTION = 0.8
 CDS_FASTA_FILE = "/corona_cds.faa"
 PFAM_DATABASE = "/Pfam-A.CoV.hmm"
-ORFS_PREDICTION_SET="./.cache_orfs_prediction_set.pkl"
+
+CORONA_REGION_FILE = "./.cache_corona_tagged_db.pkl"
+CORONA_CDS_ORFS = "./.cache_cds_orfs.pkl"
+CORONA_CDS = "./.cache_cds.pkl"
+CORONA = "./.cache_vrs.pkl"
+
 CDS_CLASSES = ["S", "HE", "E", "N", "M", "UNDEF"]
 
 # grid search parameters
@@ -29,7 +35,7 @@ CUTOFF = ["-E 1e-50", "-E 1e-30", "-E 1e-20", "-E 1e-10", "-E 1e-5", "-E 1e-3", 
 HIDDEN_LAYERS = [0, 1, 2]
 
 
-def get_training_set(domain_matches, corona_cds_training):
+def get_training_set(cds_classes, domain_matches, corona_cds_training):
     columns = ["length"]
 
     domain_count = domain_matches.groupby(["domain", "id"]).size().reset_index(name="count")
@@ -45,8 +51,7 @@ def get_training_set(domain_matches, corona_cds_training):
 
     dataset_frame = {i: dict() for i in columns}
 
-    for cls in corona_cds_training:
-
+    for cls in cds_classes:
         # get CDS group
         df = corona_cds_training[cls]
 
@@ -76,15 +81,8 @@ def get_training_set(domain_matches, corona_cds_training):
     return training_df
 
 
-def print_missed(training_df, loaded_model):
+def print_missed(training_df, corona_cds, loaded_model):
     df = training_df.copy()
-
-    # load complete CDS file
-    cache_cds_file = ".cache_cds.pkl"
-    with open(cache_cds_file, "rb") as handle:
-        corona_cds = pickle.load(handle)
-
-    corona_cds = corona_cds.set_index("protein_id")
 
     cls = df["type"].unique()
     class_map = {tp: i for tp, i in zip(cls, range(0, len(cls)))}
@@ -116,7 +114,6 @@ def main():
                         type=str, help="directory with Pfam data", required=True)
     parser.add_argument("-x", "--cross", action="store", default=5,
                         type=str, help="number of folds (k-fold cross validation)")
-    parser.add_argument("-l", action="store_true", default=False, help="load classifier")
     parser.add_argument("-g", action="store_true", default=False, help="grid search (optimize e cut-off)")
 
     print("[+] protein classification")
@@ -130,41 +127,39 @@ def main():
     print("[+] output directory", output_directory)
     print("[+] data directory", data_directory)
 
-    # load training set
-    with open(training_set_filename, "rb") as handle:
-        corona_cds_training = pickle.load(handle)
+    corona_db = pd.read_pickle(CORONA_REGION_FILE)
+    corona_cds_orfs = pd.read_pickle(CORONA_CDS_ORFS)
+    corona = pd.read_pickle(CORONA)
+    corona = corona.set_index("id")
 
-    # domain database
-    pfam_database_file = data_directory + PFAM_DATABASE
+    # load complete CDS file
+    with open(CORONA_CDS, "rb") as handle:
+        corona_cds = pickle.load(handle)
+    corona_cds = corona_cds.set_index("protein_id")
 
-    # load classifier and predict
-    if args.l:
-        training_df = pd.read_pickle(".cache_cds_training_set.pkl")
-        training_df = training_df.fillna(0)
+    # at this point we would like to analyze pretty much complete genomes
+    corona_incomplete = corona[(corona["unknown"] > 0) | (corona["length"] < 27000)]
+    corona_incomplete_cds = corona_cds[(corona_cds["unknown"] > 0)]
 
-        # load json and create model
-        json_file = open(output_directory + "/cds_protein_nn.json", "r")
-        loaded_model_json = json_file.read()
-        json_file.close()
-        loaded_model = model_from_json(loaded_model_json)
-        # load weights into new model
-        loaded_model.load_weights(output_directory + "/cds_protein_nn.h5")
-        print("Loaded model from disk")
+    # drop duplicates
+    corona = corona[~corona.index.duplicated(keep='first')]
+    corona_cds = corona_cds[~corona_cds.index.duplicated(keep='first')]
 
-        print_missed(training_df, loaded_model)
+    corona_db = corona_db[~corona_db["id"].isin(corona_incomplete.index)]
+    corona_cds = corona_cds[~corona_cds["oid"].isin(corona_incomplete.index)]
+    corona_cds = corona_cds[~corona_cds.index.isin(corona_incomplete_cds.index)]
 
-        return
+    undef_orfs = corona_db[(corona_db["type"] == "ORF") & (corona_db["type"] == "UNDEF")]
 
     records = []
-    for cls in corona_cds_training:
-        if cls == "PRED":
-            for index, row in corona_cds_training[cls].iterrows():
-                record = SeqRecord(row["protein"], id=index, description=row["id"])
-                records.append(record)
-        else:
-            for index, row in corona_cds_training[cls].iterrows():
-                record = SeqRecord(Seq(row["translation"]), id=index, description=row["product"])
-                records.append(record)
+    for cls in corona_cds_orfs:
+        for index, row in corona_cds_orfs[cls].iterrows():
+            record = SeqRecord(Seq(row["translation"]), id=index, description=row["product"])
+            records.append(record)
+
+    for index, row in undef_orfs.iterrows():
+        record = SeqRecord(Seq(row["protein"]), id=index, description=row["id"])
+        records.append(record)
 
     cds_fasta_file = data_directory + CDS_FASTA_FILE
     SeqIO.write(records, cds_fasta_file, "fasta")
@@ -185,10 +180,13 @@ def main():
     training_cases = {}
     for cutoff in cutoff_values:
         suffix = str(cutoff).replace(' ', '')
-        if args.g:
+        if not args.g:
             scan_file = data_directory + "/matches_cds.scan"
         else:
             scan_file = "/tmp/matches_cds" + suffix + ".scan"
+
+        # domain database
+        pfam_database_file = data_directory + PFAM_DATABASE
 
         command = ["hmmscan", "--domtblout", scan_file, cutoff, "--cpu", "64", pfam_database_file, cds_fasta_file]
 
@@ -228,16 +226,10 @@ def main():
 
         domain_matches = pd.DataFrame.from_dict(domains_frame)
 
-        training_df = get_training_set(domain_matches, corona_cds_training)
+        training_df = get_training_set(CDS_CLASSES, domain_matches, corona_cds_orfs)
         training_df = training_df.fillna(0)
 
         training_cases[suffix] = training_df[training_df["type"].isin(CDS_CLASSES)]
-
-        if args.g:
-            # get ORFs for prediction
-            predict_df = training_df["type"][training_df["type"] == "PRED"]
-            print("Writing", ORFS_PREDICTION_SET, "file")
-            predict_df.to_pickle(ORFS_PREDICTION_SET)
 
     columns = ["cutoff"]
     for hidden_number in hidden_layers:
@@ -255,7 +247,7 @@ def main():
 
             # run for each cross validation case
             for run in range(0, k_fold):
-                print(" =========== Running case", case, case_hidden_column, run)
+                print(" [=] Running case", case, case_hidden_column, run)
 
                 # get training dataset
                 training_df = training_cases[case]
@@ -291,7 +283,7 @@ def main():
 
                 class_weights = class_weight.compute_class_weight("balanced", np.unique(y_train), y_train)
 
-                encoded = to_categorical(y_train)
+                y_train = to_categorical(y_train)
                 y_test = to_categorical(y_test)
 
                 network = Sequential()
@@ -301,13 +293,13 @@ def main():
                 for nh in range(0, hidden_number):
                     network.add(Dense(16, activation="relu"))
 
-                network.add(Dense(len(encoded[0]), activation="softmax"))
+                network.add(Dense(len(y_train[0]), activation="softmax"))
 
                 # compile network
                 network.compile(optimizer="rmsprop", loss="categorical_crossentropy", metrics=["accuracy"])
 
                 # train network
-                network.fit(x_train, encoded, epochs=50, batch_size=8, class_weight=class_weights, verbose=0)
+                network.fit(x_train, y_train, epochs=50, batch_size=8, class_weight=class_weights, verbose=1)
 
                 # predict our testing set
                 y_pred = network.predict(x_test)
@@ -330,16 +322,18 @@ def main():
                 print("Classification Report")
                 print(classification_report(y_test.argmax(axis=1), y_pred.argmax(axis=1), target_names=target_names))
 
-                print_missed(training_df, network)
+                print_missed(training_df, corona_cds, network)
 
                 if not args.g:
-                    # serialize model to JSON
-                    model_json = network.to_json()
-                    with open(output_directory + "/cds_protein_nn.json", "w") as json_file:
-                        json_file.write(model_json)
+                    # create JSON with metadata about the model
+                    data = {"cutoff": cutoff_values[0],
+                            "features": list(training_df.columns.values[:-1]),
+                            "classes": class_map}
+                    with open(output_directory + "/cds_protein_nn.json", "w") as fp:
+                        json.dump(data, fp)
 
                     # serialize weights to HDF5
-                    network.save_weights(output_directory + "/cds_protein_nn.h5")
+                    network.save(output_directory + "/cds_protein_nn.h5")
 
                     print("Saved model to disk")
 
@@ -352,7 +346,8 @@ def main():
 
     # store cross validation results
     print(cross_validation)
-    cross_validation.to_pickle(output_directory + "/cds_protein_nn_xval.pkl")
+    if args.g:
+        cross_validation.to_pickle(output_directory + "/cds_protein_nn_xval.pkl")
 
 
 main()

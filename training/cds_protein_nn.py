@@ -20,7 +20,7 @@ from Bio import SeqIO
 import argparse
 
 TRAINING_FRACTION = 0.8
-CDS_FASTA_FILE = "/corona_cds.faa"
+CDS_FASTA_FILE = "/tmp/corona_cds.faa"
 PFAM_DATABASE = "/Pfam-A.CoV.hmm"
 
 CORONA_REGION_FILE = "./.cache_corona_tagged_db.pkl"
@@ -161,7 +161,7 @@ def main():
         record = SeqRecord(Seq(row["protein"]), id=index, description=row["id"])
         records.append(record)
 
-    cds_fasta_file = data_directory + CDS_FASTA_FILE
+    cds_fasta_file = CDS_FASTA_FILE
     SeqIO.write(records, cds_fasta_file, "fasta")
 
     print("[+] fasta file written :", cds_fasta_file)

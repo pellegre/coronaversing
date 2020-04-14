@@ -9,6 +9,7 @@ Initial exploratory analysis it's on the root [notebook](./coronaversing.ipynb) 
 
 1. [Genome Exploratory Analysis](./coronaversing.ipynb)
 2. [Protein Recognition and Classification with Machine Learning](./proteindb.ipynb)
+3. [Machine Learning for Genus Classification](./protonaversing.ipynb)
 
 ## Useful Resources and References
 

@@ -71,7 +71,7 @@ class RandomForest(Predictor):
 
 class NeuralNetwork(Predictor):
     def __init__(self, n_layers, n_nodes, dropout):
-        name = "nn-layers" + str(n_layers) + "-nodes" + str(n_nodes)
+        name = "nn-layers" + str(n_layers) + "-nodes" + str(n_nodes) + "-dropout" + str(dropout)
         super(NeuralNetwork, self).__init__(name)
 
         self.n_layers = n_layers

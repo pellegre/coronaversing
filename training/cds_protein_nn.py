@@ -243,7 +243,6 @@ def main():
     print("[+] output directory", output_directory)
     print("[+] data directory", data_directory)
 
-    corona_db = pd.read_pickle(CORONA_REGION_FILE)
     corona_cds_orfs = pd.read_pickle(CORONA_CDS_ORFS)
 
     lst = set(corona_cds_orfs["S"]["oid"]) & set(corona_cds_orfs["E"]["oid"]) & \

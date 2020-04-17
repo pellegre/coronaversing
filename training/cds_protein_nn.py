@@ -245,8 +245,6 @@ def main():
 
     corona_db = pd.read_pickle(CORONA_REGION_FILE)
     corona_cds_orfs = pd.read_pickle(CORONA_CDS_ORFS)
-    corona = pd.read_pickle(CORONA)
-    corona = corona.set_index("id")
 
     lst = set(corona_cds_orfs["S"]["oid"]) & set(corona_cds_orfs["E"]["oid"]) & \
           set(corona_cds_orfs["M"]["oid"]) & set(corona_cds_orfs["N"]["oid"])

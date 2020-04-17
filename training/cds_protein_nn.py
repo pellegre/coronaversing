@@ -178,6 +178,8 @@ def print_missed(training_df, corona_cds, classifier):
     missed_cds["predicted"] = misses["predicted"]
 
     if len(missed_cds) > 0:
+        pd.options.display.max_columns = None
+        pd.options.display.max_rows = None
         print(missed_cds)
 
 
